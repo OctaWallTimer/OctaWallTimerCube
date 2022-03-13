@@ -1,10 +1,15 @@
 #include<Wire.h>
+#include<BLEDevice.h>
+#include<BLEUtils.h>
+#include<BLEServer.h>
+
+#define SERVICE_UUID        "d9feba64-a2e0-11ec-b909-0242ac120002"
+#define CHARACTERISTIC_UUID "e0c21b3e-a2e0-11ec-b909-0242ac120002"
 
 const int MPU_addr=0x68;
 int16_t X,Y,Z;
-
+BLECharacteristic* pCharacteristic;
 void setup(){
-
   Serial.begin(9600);
 
   Wire.begin(15,14);
@@ -12,6 +17,19 @@ void setup(){
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
+
+  BLEDevice::init("OctaWallTimer");
+  BLEServer *pServer = BLEDevice::createServer();
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+  pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ);
+  pService->start();
+
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);
+  pAdvertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
 }
 
 
@@ -33,8 +51,8 @@ void loop(){
   else if(Z < 0 && abs(X) < 2000 && abs(Y) < 2000) wall=5;
   else if(Z<0 && X>Y && Y>0) wall=6;
   else if(X>0 && Z>X && Y>Z) wall=7;
-  else if(Y>Z && Z>0 && X<0) wall=8;
-
+  else if(Y>Z && Z>X && X<0) wall=8;
+  pCharacteristic->setValue(wall);
   Serial.print("Sciana: ");
   Serial.println(wall);
   delay(1000);
