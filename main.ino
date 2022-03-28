@@ -9,6 +9,21 @@
 const int MPU_addr=0x68;
 int16_t X,Y,Z;
 BLECharacteristic* pCharacteristic;
+BLEServer *pServer;
+
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+class BLECallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+      BLEDevice::startAdvertising();
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
+
 void setup(){
   Serial.begin(9600);
 
@@ -19,7 +34,8 @@ void setup(){
   Wire.endTransmission(true);
 
   BLEDevice::init("OctaWallTimer");
-  BLEServer *pServer = BLEDevice::createServer();
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new BLECallbacks);
   BLEService *pService = pServer->createService(SERVICE_UUID);
   pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ);
   pService->start();
@@ -29,16 +45,23 @@ void setup(){
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMinPreferred(0x12);
-  BLEDevice::startAdvertising();
 }
 
 
 void loop(){
-
+  if (!deviceConnected) {
+      delay(500);
+      pServer->startAdvertising();
+      Serial.println("start advertising");
+      oldDeviceConnected = deviceConnected;
+  }
+  if (deviceConnected && !oldDeviceConnected) {
+      oldDeviceConnected = deviceConnected;
+  }
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);  // rejestr ACCEL_XOUT_H
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr,6,true); //odczytywanie 6 rejestrow
+  Wire.requestFrom((uint16_t) MPU_addr,(uint8_t)6,true); //odczytywanie 6 rejestrow
   X=Wire.read()<<8|Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)    
   Y=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
   Z=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
