@@ -49,7 +49,7 @@ void setup(){
 
 
 void loop(){
-  if (!deviceConnected) {
+  if (!deviceConnected && oldDeviceConnected) {
       delay(500);
       pServer->startAdvertising();
       Serial.println("start advertising");
